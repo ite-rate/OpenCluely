@@ -25,14 +25,19 @@ class FirstRunManager {
 
   /**
    * Returns true if this looks like a fresh install — no .env, no
-   * sentinel file, or .env exists but has no Gemini key.
+   * sentinel file, or .env exists but has no LLM provider key.
    */
   needsOnboarding() {
     if (!fs.existsSync(this.sentinelPath)) return true;
     if (!fs.existsSync(this.envPath)) return true;
     const content = this._readEnv();
     const gemini = (content.GEMINI_API_KEY || '').trim();
-    return !gemini || gemini === 'your_gemini_api_key_here';
+    const ollama = (content.OLLAMA_API_KEY || '').trim();
+    const hasLlmKey = !!(
+      (ollama && ollama !== 'your_ollama_api_key_here') ||
+      (gemini && gemini !== 'your_gemini_api_key_here')
+    );
+    return !hasLlmKey;
   }
 
   /**

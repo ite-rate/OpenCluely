@@ -1607,6 +1607,9 @@ class ApplicationController {
       whisperResponseTarget: process.env.WHISPER_RESPONSE_TARGET || "both",
       whisperSegmentMs: process.env.WHISPER_SEGMENT_MS || "4000",
       geminiKey: process.env.GEMINI_API_KEY || "",
+      ollamaKey: process.env.OLLAMA_API_KEY || "",
+      ollamaModel: process.env.OLLAMA_MODEL || "deepseek-v4-flash",
+      ollamaVisionModel: process.env.OLLAMA_VISION_MODEL || "glm-5.3-flash",
 
       azureConfigured: !!process.env.AZURE_SPEECH_KEY && !!process.env.AZURE_SPEECH_REGION,
       speechAvailable: this.speechAvailable
@@ -1678,6 +1681,15 @@ class ApplicationController {
       if (settings.geminiKey !== undefined) {
         envUpdates.GEMINI_API_KEY = settings.geminiKey;
       }
+      if (settings.ollamaKey !== undefined) {
+        envUpdates.OLLAMA_API_KEY = settings.ollamaKey;
+      }
+      if (settings.ollamaModel !== undefined && settings.ollamaModel.trim() !== "") {
+        envUpdates.OLLAMA_MODEL = settings.ollamaModel.trim();
+      }
+      if (settings.ollamaVisionModel !== undefined && settings.ollamaVisionModel.trim() !== "") {
+        envUpdates.OLLAMA_VISION_MODEL = settings.ollamaVisionModel.trim();
+      }
 
       // Capture the previous whisper command BEFORE persisting — persistEnvUpdates
       // mutates process.env in place, so comparing afterwards would always read
@@ -1695,9 +1707,27 @@ class ApplicationController {
       if (settings.geminiKey !== undefined && envUpdates.GEMINI_API_KEY !== undefined) {
         try {
           llmService.initializeClient();
-          logger.info("LLM service reinitialized after Gemini key update");
+          logger.info("LLM service reinitialized after API key update");
         } catch (e) {
-          logger.warn("Failed to reinitialize LLM service after Gemini key update", {
+          logger.warn("Failed to reinitialize LLM service after API key update", {
+            error: e.message
+          });
+        }
+      }
+
+      // Ollama 模型/key 变更后同步重建客户端
+      if ((settings.ollamaKey !== undefined || settings.ollamaModel !== undefined ||
+           settings.ollamaVisionModel !== undefined) &&
+          (envUpdates.OLLAMA_API_KEY !== undefined || envUpdates.OLLAMA_MODEL !== undefined ||
+           envUpdates.OLLAMA_VISION_MODEL !== undefined)) {
+        try {
+          llmService.ollamaApiKey = process.env.OLLAMA_API_KEY || '';
+          if (process.env.OLLAMA_MODEL) llmService.ollamaModel = process.env.OLLAMA_MODEL;
+          if (process.env.OLLAMA_VISION_MODEL) llmService.ollamaVisionModel = process.env.OLLAMA_VISION_MODEL;
+          llmService.initializeClient();
+          logger.info("LLM service reinitialized after Ollama settings update");
+        } catch (e) {
+          logger.warn("Failed to reinitialize LLM service after Ollama settings update", {
             error: e.message
           });
         }

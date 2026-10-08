@@ -106,7 +106,7 @@ class ChatWindowUI {
             
             window.electronAPI.onSpeechError((event, data) => {
                 if (data && data.error) {
-                    this.addMessage(`Speech Error: ${data.error}`, 'error');
+                    this.addMessage(`语音错误：${data.error}`, 'error');
                     this.handleRecordingStopped(); // Stop recording on error
                 }
             });
@@ -120,12 +120,12 @@ class ChatWindowUI {
             
             // Session handlers
             window.electronAPI.onSessionCleared(() => {
-                this.addMessage('Session memory has been cleared', 'system');
+                this.addMessage('会话记忆已清空', 'system');
             });
             
             window.electronAPI.onOcrCompleted((event, data) => {
                 if (data.text && data.text.trim()) {
-                    this.addMessage(`📷 OCR Result: ${data.text}`, 'transcription');
+                    this.addMessage(`📷 识别结果：${data.text}`, 'transcription');
                 }
             });
             
@@ -194,7 +194,7 @@ class ChatWindowUI {
                     await window.electronAPI.startSpeechRecognition();
                 }
             } catch (error) {
-                this.addMessage(`Speech recognition error: ${error.message}`, 'error');
+                this.addMessage(`语音识别出错：${error.message}`, 'error');
                 logger.error('Speech recognition failed', { error: error.message });
             }
         });

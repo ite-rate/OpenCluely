@@ -10,15 +10,39 @@ class LLMService {
     this.isInitialized = false;
     this.requestCount = 0;
     this.errorCount = 0;
-    
+
+    // Ollama Cloud (ollama.com) OpenAI-compatible adapter. Takes precedence
+    // over Gemini when OLLAMA_API_KEY is set. deepseek-v4-flash is text-only
+    // on Ollama Cloud, so image requests are routed to a vision-capable
+    // cloud model (configurable via OLLAMA_VISION_MODEL).
+    this.ollamaApiKey = process.env.OLLAMA_API_KEY || '';
+    this.ollamaBaseUrl = (process.env.OLLAMA_BASE_URL || 'https://ollama.com/v1').replace(/\/+$/, '');
+    this.ollamaModel = process.env.OLLAMA_MODEL || 'deepseek-v4-flash';
+    this.ollamaVisionModel = process.env.OLLAMA_VISION_MODEL || 'glm-5.3-flash';
+
     this.initializeClient();
   }
 
+  get useOllama() {
+    return !!this.ollamaApiKey;
+  }
+
   initializeClient() {
+    if (this.useOllama) {
+      this.model = this.ollamaModel;
+      this.isInitialized = true;
+      logger.info('Ollama Cloud client configured', {
+        baseUrl: this.ollamaBaseUrl,
+        textModel: this.ollamaModel,
+        visionModel: this.ollamaVisionModel
+      });
+      return;
+    }
+
     const apiKey = config.getApiKey('GEMINI');
     
     if (!apiKey || apiKey === 'your-api-key-here') {
-      logger.warn('Gemini API key not configured', { 
+      logger.warn('Gemini API key not configured', {
         keyExists: !!apiKey,
         isPlaceholder: apiKey === 'your-api-key-here'
       });
@@ -40,6 +64,176 @@ class LLMService {
         error: error.message 
       });
     }
+  }
+
+  // ── Ollama Cloud (OpenAI-compatible) adapter ──────────────────────────
+  // Translates the Gemini-style request shape used throughout this service
+  // ({ contents, systemInstruction, generationConfig }) into OpenAI chat
+  // format and posts it to https://ollama.com/v1/chat/completions.
+
+  _ollamaModelFor(hasImage) {
+    return hasImage ? this.ollamaVisionModel : this.ollamaModel;
+  }
+
+  _geminiRequestToOpenAI(geminiRequest) {
+    const messages = [];
+
+    const sysParts = geminiRequest.systemInstruction?.parts || [];
+    const sysText = sysParts.map(p => (typeof p.text === 'string' ? p.text : '')).join('\n').trim();
+    if (sysText) {
+      messages.push({ role: 'system', content: sysText });
+    }
+
+    let hasImage = false;
+    for (const content of geminiRequest.contents || []) {
+      const parts = (content.parts || []).map(part => {
+        if (typeof part.text === 'string') {
+          return { type: 'text', text: part.text };
+        }
+        if (part.inlineData?.data) {
+          hasImage = true;
+          return {
+            type: 'image_url',
+            image_url: { url: `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}` }
+          };
+        }
+        return null;
+      }).filter(Boolean);
+
+      if (parts.length) {
+        messages.push({ role: content.role === 'model' ? 'assistant' : 'user', content: parts });
+      }
+    }
+
+    // Collapse single-text-part messages down to plain strings; most
+    // OpenAI-compatible backends handle either, but plain strings are the
+    // safest common denominator for the text-only path.
+    const normalized = messages.map(m =>
+      Array.isArray(m.content) && m.content.every(p => p.type === 'text')
+        ? { ...m, content: m.content.map(p => p.text).join('\n') }
+        : m
+    );
+
+    const gen = geminiRequest.generationConfig || {};
+    const body = {
+      model: this._ollamaModelFor(hasImage),
+      messages: normalized,
+      stream: false
+    };
+    if (gen.temperature !== undefined) body.temperature = gen.temperature;
+    if (gen.topP !== undefined) body.top_p = gen.topP;
+    if (gen.maxOutputTokens !== undefined) body.max_tokens = gen.maxOutputTokens;
+
+    return { body, hasImage };
+  }
+
+  async _ollamaChatOnce(body, onDelta) {
+    const https = require('https');
+    const { URL } = require('url');
+    const url = new URL(`${this.ollamaBaseUrl}/chat/completions`);
+    const postData = JSON.stringify(body);
+    const agent = new https.Agent({ keepAlive: true });
+
+    return new Promise((resolve, reject) => {
+      const req = https.request(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.ollamaApiKey}`,
+          'Content-Length': Buffer.byteLength(postData),
+          'User-Agent': this.getUserAgent()
+        },
+        timeout: config.get('llm.gemini.timeout') || 30000,
+        agent
+      }, (res) => {
+        if (res.statusCode !== 200) {
+          let errBody = '';
+          res.on('data', c => { errBody += c; });
+          res.on('end', () => reject(new Error(`HTTP ${res.statusCode}: ${errBody.slice(0, 300)}`)));
+          return;
+        }
+
+        // Support both buffered JSON and SSE ("data: {...}") streaming.
+        const isSSE = (res.headers['content-type'] || '').includes('text/event-stream');
+        let buffer = '';
+        let fullText = '';
+
+        const consume = (json) => {
+          const piece = json?.choices?.[0]?.delta?.content
+            ?? json?.choices?.[0]?.message?.content
+            ?? '';
+          if (piece) {
+            fullText += piece;
+            if (typeof onDelta === 'function') onDelta(piece);
+          }
+        };
+
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => {
+          buffer += chunk;
+          if (!isSSE) return;
+          let idx;
+          while ((idx = buffer.indexOf('\n')) !== -1) {
+            const line = buffer.slice(0, idx).trim();
+            buffer = buffer.slice(idx + 1);
+            if (!line.startsWith('data:')) continue;
+            const payload = line.slice(5).trim();
+            if (!payload || payload === '[DONE]') continue;
+            try { consume(JSON.parse(payload)); } catch (_) {}
+          }
+        });
+
+        res.on('end', () => {
+          if (isSSE) { resolve(fullText.trim()); return; }
+          try {
+            const json = JSON.parse(buffer);
+            resolve(String(json?.choices?.[0]?.message?.content || '').trim());
+          } catch (e) {
+            reject(new Error(`Failed to parse Ollama response: ${e.message}`));
+          }
+        });
+        res.on('error', (error) => reject(new Error(`Ollama response error: ${error.message}`)));
+      });
+
+      req.on('error', (error) => reject(new Error(`Ollama request failed: ${error.message}`)));
+      req.on('timeout', () => { req.destroy(); reject(new Error('Ollama request timeout')); });
+      req.write(postData);
+      req.end();
+    });
+  }
+
+  /**
+   * Execute a request against Ollama Cloud with the same retry policy as
+   * executeRequest. Returns the full response text.
+   */
+  async executeOllamaRequest(geminiRequest, onDelta = null) {
+    const maxRetries = config.get('llm.gemini.maxRetries') || 3;
+    const { body } = this._geminiRequestToOpenAI(geminiRequest);
+
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const streamBody = typeof onDelta === 'function' ? { ...body, stream: true } : body;
+        const text = await this._ollamaChatOnce(streamBody, onDelta);
+        if (!text) throw new Error('Empty response from Ollama Cloud');
+        return text;
+      } catch (error) {
+        lastError = error;
+        logger.warn(`Ollama Cloud attempt ${attempt} failed`, {
+          error: error.message,
+          model: body.model,
+          remainingAttempts: maxRetries - attempt
+        });
+
+        // Auth errors will never succeed on retry — fail fast.
+        if (error.message.includes('HTTP 401') || error.message.includes('HTTP 403')) break;
+        if (attempt < maxRetries) {
+          await this.delay(1500 * attempt + Math.random() * 1000);
+        }
+      }
+    }
+
+    throw new Error(`Ollama Cloud failed after ${maxRetries} attempts: ${lastError?.message}`);
   }
 
   getGenerationConfig(overrides = {}) {
@@ -123,7 +317,11 @@ class LLMService {
    */
   async processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('LLM service not initialized. Check API key configuration.');
+    }
+
+    if (this.useOllama) {
+      return this._ollamaProcess('image', { imageBuffer, mimeType, activeSkill, programmingLanguage });
     }
 
     if (!imageBuffer || !Buffer.isBuffer(imageBuffer)) {
@@ -227,7 +425,11 @@ class LLMService {
 
   async processImageWithSkillStream(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('LLM service not initialized. Check API key configuration.');
+    }
+
+    if (this.useOllama) {
+      return this._ollamaProcess('image', { imageBuffer, mimeType, activeSkill, programmingLanguage, onDelta });
     }
 
     if (!imageBuffer || !Buffer.isBuffer(imageBuffer)) {
@@ -298,13 +500,17 @@ class LLMService {
   }
 
   formatImageInstruction(activeSkill, programmingLanguage) {
-    const langNote = programmingLanguage ? ` Use only ${programmingLanguage.toUpperCase()} for any code.` : '';
-    return `Analyze this image for a ${activeSkill.toUpperCase()} question. Extract the problem concisely and provide the best possible solution with explanation and final code.${langNote}`;
+    const langNote = programmingLanguage ? ` 代码只使用 ${programmingLanguage.toUpperCase()}。` : '';
+    return `分析这张图片中的${activeSkill === 'dsa' ? '算法' : activeSkill}题目。简要提取题目，给出最优解法的中文讲解和最终代码。${langNote}所有说明文字必须使用简体中文（代码除外）。`;
   }
 
   async processTextWithSkill(text, activeSkill, sessionMemory = [], programmingLanguage = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('LLM service not initialized. Check API key configuration.');
+    }
+
+    if (this.useOllama) {
+      return this._ollamaProcess('text', { text, activeSkill, sessionMemory, programmingLanguage });
     }
 
     const startTime = Date.now();
@@ -391,7 +597,11 @@ class LLMService {
 
   async processTextWithSkillStream(text, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('LLM service not initialized. Check API key configuration.');
+    }
+
+    if (this.useOllama) {
+      return this._ollamaProcess('text', { text, activeSkill, sessionMemory, programmingLanguage, onDelta });
     }
 
     const startTime = Date.now();
@@ -437,9 +647,79 @@ class LLMService {
     }
   }
 
+  /**
+   * Unified Ollama Cloud entry point. Builds the same Gemini-style request
+   * the original path would have built, then converts and sends it. Returns
+   * the same {response, metadata} shape as the Gemini methods.
+   */
+  async _ollamaProcess(kind, { imageBuffer, mimeType, text, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null }) {
+    const startTime = Date.now();
+    this.requestCount++;
+
+    try {
+      let geminiRequest;
+      if (kind === 'image') {
+        const skillPrompt = promptLoader.getSkillPrompt(activeSkill, programmingLanguage) || '';
+        geminiRequest = {
+          contents: [{
+            role: 'user',
+            parts: [
+              { text: this.formatImageInstruction(activeSkill, programmingLanguage) },
+              { inlineData: { data: imageBuffer.toString('base64'), mimeType: mimeType || 'image/png' } }
+            ]
+          }]
+        };
+        this.applyGenerationDefaults(geminiRequest);
+        if (skillPrompt && skillPrompt.trim().length > 0) {
+          geminiRequest.systemInstruction = { parts: [{ text: skillPrompt }] };
+        }
+      } else if (kind === 'text') {
+        geminiRequest = this.buildGeminiRequest(text, activeSkill, sessionMemory, programmingLanguage);
+      } else {
+        geminiRequest = this.buildIntelligentTranscriptionRequest(text, activeSkill, sessionMemory, programmingLanguage);
+      }
+
+      const responseText = await this.executeOllamaRequest(geminiRequest, onDelta);
+      const finalResponse = programmingLanguage
+        ? this.enforceProgrammingLanguage(responseText, programmingLanguage)
+        : responseText;
+
+      logger.logPerformance(`LLM Ollama ${kind}`, startTime, {
+        activeSkill,
+        programmingLanguage: programmingLanguage || 'not specified',
+        requestId: this.requestCount
+      });
+
+      return {
+        response: finalResponse,
+        metadata: {
+          skill: activeSkill,
+          programmingLanguage,
+          processingTime: Date.now() - startTime,
+          requestId: this.requestCount,
+          usedFallback: false,
+          provider: 'ollama-cloud',
+          streamed: !!onDelta
+        }
+      };
+    } catch (error) {
+      this.errorCount++;
+      logger.error(`LLM Ollama ${kind} failed`, {
+        error: error.message,
+        activeSkill,
+        requestId: this.requestCount
+      });
+      throw error;
+    }
+  }
+
   async processTranscriptionWithIntelligentResponse(text, activeSkill, sessionMemory = [], programmingLanguage = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('LLM service not initialized. Check API key configuration.');
+    }
+
+    if (this.useOllama) {
+      return this._ollamaProcess('transcription', { text, activeSkill, sessionMemory, programmingLanguage });
     }
 
     const startTime = Date.now();
@@ -779,11 +1059,11 @@ class LLMService {
   }
 
   getIntelligentTranscriptionPrompt(activeSkill, programmingLanguage) {
-    let prompt = `# Intelligent Transcription Response System
+    let prompt = `# 智能语音应答系统
 
-Assume you are asked a question in ${activeSkill.toUpperCase()} mode. Your job is to intelligently respond to question/message with appropriate brevity.
-Assume you are in an interview and you need to perform best in ${activeSkill.toUpperCase()} mode.
-Always respond to the point, do not repeat the question or unnecessary information which is not related to ${activeSkill}.`;
+用户在${activeSkill === 'dsa' ? '算法' : activeSkill}模式下提问。你的任务是以合适的详略程度智能地回答问题/消息。
+假设你正在面试中，需要在该模式下发挥最好水平。
+回答切中要点，不要复述问题或与模式无关的信息。所有说明文字必须使用简体中文（代码除外）。`;
 
     // Add programming language context if provided
     if (programmingLanguage) {
@@ -792,50 +1072,37 @@ Always respond to the point, do not repeat the question or unnecessary informati
       const fenceTagMap = { cpp: 'cpp', c: 'c', python: 'python', java: 'java', javascript: 'javascript', js: 'javascript' };
       const languageTitle = languageMap[lang] || (lang.charAt(0).toUpperCase() + lang.slice(1));
       const fenceTag = fenceTagMap[lang] || lang || 'text';
-      prompt += `\n\nCODING CONTEXT: Respond ONLY in ${languageTitle}. All code blocks must use triple backticks with language tag \`\`\`${fenceTag}\`\`\`. Do not include other languages unless explicitly asked.`;
+      prompt += `\n\n编程上下文：只使用${languageTitle}。所有代码块使用三反引号并标注 \`\`\`${fenceTag}\`\`\`，除非明确要求否则不要用其他语言。`;
     }
 
     prompt += `
 
-## Response Rules:
+## 应答规则：
 
-### If the transcription is casual conversation, greetings, or NOT related to ${activeSkill}:
-- Respond with: "Yeah, I'm listening. Ask your question relevant to ${activeSkill}."
-- Or similar brief acknowledgments like: "I'm here, what's your ${activeSkill} question?"
+### 如果转写内容是闲聊、问候，或与模式无关：
+- 简短回应即可，例如："我在听，请提出你的问题。"
+- 或类似的简短确认语。
 
-### If the transcription IS relevant to ${activeSkill} or is a follow-up question:
-- Provide a comprehensive, detailed response
-- Use bullet points, examples, and explanations
-- Focus on actionable insights and complete answers
-- Do not truncate or shorten your response
+### 如果转写内容与模式相关，或是对之前回答的追问：
+- 提供全面、详细的回答
+- 使用要点、示例和讲解
+- 聚焦可执行的结论和完整答案
+- 不要截断或刻意缩短回答
 
-### Examples of casual/irrelevant messages:
-- "Hello", "Hi there", "How are you?"
-- "What's the weather like?"
-- "I'm just testing this"
-- Random conversations not related to ${activeSkill}
+## 回答格式：
+- 用简体中文回答（代码除外）
+- 结构化答案使用要点列表
+- 保持专注，不跑题
 
-### Examples of relevant messages:
-- Actual questions about ${activeSkill} concepts
-- Follow-up questions to previous responses
-- Requests for clarification on ${activeSkill} topics
-- Problem-solving requests related to ${activeSkill}
+如果用户输入的是编程或算法题面且不含代码，直接用所选语言给出完整可运行的解法，不要追问。始终在带正确语言标签的代码块中给出最终实现。
 
-## Response Format:
-- Keep responses detailed
-- Use bullet points for structured answers
-- Be encouraging and helpful
-- Stay focused on ${activeSkill}
-
-If the user's input is a coding or DSA problem statement and contains no code, produce a complete, runnable solution in the selected programming language without asking for more details. Always include the final implementation in a properly tagged code block.
-
-Remember: Be intelligent about filtering - only provide detailed responses when the user actually needs help with ${activeSkill}.`;
+记住：智能过滤——只在用户确实需要帮助时才给出详细回答。`;
 
     return prompt;
   }
 
   formatUserMessage(text, activeSkill) {
-    return `Context: ${activeSkill.toUpperCase()} analysis request\n\nText to analyze:\n${text}`;
+    return `场景：${activeSkill === 'dsa' ? '算法' : activeSkill}分析请求\n\n待分析内容：\n${text}`;
   }
 
   async executeRequest(geminiRequest) {
@@ -980,7 +1247,11 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    */
   async processTranscriptionWithIntelligentResponseStream(text, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('LLM service not initialized. Check API key configuration.');
+    }
+
+    if (this.useOllama) {
+      return this._ollamaProcess('transcription', { text, activeSkill, sessionMemory, programmingLanguage, onDelta });
     }
 
     const startTime = Date.now();
@@ -1372,9 +1643,9 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
 
     let response;
     if (hasRelevantKeywords || seemsLikeQuestion) {
-      response = `I'm having trouble processing that right now, but it sounds like a ${activeSkill} question. Could you rephrase or ask more specifically about what you need help with?`;
+      response = `现在处理有点问题。这听起来是一个${activeSkill === 'dsa' ? '算法' : activeSkill}相关的问题，能换个说法或更具体地描述一下吗？`;
     } else {
-      response = `Yeah, I'm listening. Ask your question relevant to ${activeSkill}.`;
+      response = `我在听，请提出你的问题。`;
     }
     
     return {
@@ -1392,6 +1663,35 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   async testConnection() {
     if (!this.isInitialized) {
       return { success: false, error: 'Service not initialized' };
+    }
+
+    if (this.useOllama) {
+      const startTime = Date.now();
+      try {
+        const request = {
+          contents: [{ role: 'user', parts: [{ text: 'Test connection. Please respond with "OK".' }] }]
+        };
+        this.applyGenerationDefaults(request, { temperature: 0, maxOutputTokens: 64 });
+        const response = await this.executeOllamaRequest(request);
+        const latency = Date.now() - startTime;
+        logger.info('Ollama Cloud connection test successful', { latency, model: this.ollamaModel });
+        return {
+          success: true,
+          response,
+          latency,
+          model: this.ollamaModel,
+          provider: 'ollama-cloud'
+        };
+      } catch (error) {
+        logger.error('Ollama Cloud connection test failed', { error: error.message });
+        return {
+          success: false,
+          error: error.message.includes('401') || error.message.includes('403')
+            ? 'Ollama API key invalid or unauthorized. Check your key at ollama.com/settings/keys.'
+            : error.message,
+          provider: 'ollama-cloud'
+        };
+      }
     }
 
     try {
@@ -1510,6 +1810,11 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   }
 
   updateApiKey(newApiKey) {
+    if (this.useOllama) {
+      // Ollama key comes from env; nothing to hot-swap for the Gemini client.
+      logger.info('API key update requested; Ollama Cloud provider active, ignoring');
+      return;
+    }
     process.env.GEMINI_API_KEY = newApiKey;
     this.isInitialized = false;
     this.initializeClient();

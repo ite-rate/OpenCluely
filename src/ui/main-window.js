@@ -519,15 +519,15 @@ class MainWindowUI {
     handleLLMResponse(data) {
         const skill = data.skill || data.metadata?.skill || 'General';
         const skillNames = {
-            'dsa': 'DSA',
-            'behavioral': 'Behavioral', 
-            'sales': 'Sales',
-            'presentation': 'Presentation',
-            'data-science': 'Data Science',
-            'programming': 'Programming',
-            'devops': 'DevOps',
-            'system-design': 'System Design',
-            'negotiation': 'Negotiation'
+            'dsa': '算法',
+            'behavioral': '行为面试',
+            'sales': '销售',
+            'presentation': '演示',
+            'data-science': '数据科学',
+            'programming': '编程',
+            'devops': '运维',
+            'system-design': '系统设计',
+            'negotiation': '谈判'
         };
         
         const displaySkill = skillNames[skill] || skill.toUpperCase();
@@ -758,15 +758,15 @@ class MainWindowUI {
 
     updateSkillIndicator() {
         const skillNames = {
-            'dsa': 'DSA',
-            'behavioral': 'Behavioral', 
-            'sales': 'Sales',
-            'presentation': 'Presentation',
-            'data-science': 'Data Science',
-            'programming': 'Programming',
-            'devops': 'DevOps',
-            'system-design': 'System Design',
-            'negotiation': 'Negotiation'
+            'dsa': '算法',
+            'behavioral': '行为面试',
+            'sales': '销售',
+            'presentation': '演示',
+            'data-science': '数据科学',
+            'programming': '编程',
+            'devops': '运维',
+            'system-design': '系统设计',
+            'negotiation': '谈判'
         };
         
         logger.info('Updating skill indicator', {
@@ -794,8 +794,8 @@ class MainWindowUI {
             skillSpan.textContent = skillName;
                         
             const tooltip = this.isInteractive ? 
-                `${skillName} - Use ⌘↑/↓ to navigate skills` : 
-                `${skillName} - Enable interactive mode (Alt+A) to navigate`;
+                `${skillName} - 按 ⌘↑/↓ 切换技能` :
+                `${skillName} - 开启交互模式 (Alt+A) 后可切换`;
             this.skillIndicator.title = tooltip;
             
             // Add visual feedback for skill change
@@ -871,15 +871,15 @@ class MainWindowUI {
 
     showSkillChangeNotification(skill, direction) {
         const skillNames = {
-            'dsa': 'DSA',
-            'behavioral': 'Behavioral', 
-            'sales': 'Sales',
-            'presentation': 'Presentation',
-            'data-science': 'Data Science',
-            'programming': 'Programming',
-            'devops': 'DevOps',
-            'system-design': 'System Design',
-            'negotiation': 'Negotiation'
+            'dsa': '算法',
+            'behavioral': '行为面试',
+            'sales': '销售',
+            'presentation': '演示',
+            'data-science': '数据科学',
+            'programming': '编程',
+            'devops': '运维',
+            'system-design': '系统设计',
+            'negotiation': '谈判'
         };
         
         const displayName = skillNames[skill] || skill.toUpperCase();
@@ -1014,7 +1014,7 @@ class MainWindowUI {
                 component: 'MainWindowUI',
                 error: error.message
             });
-            this.showNotification('Failed to load Gemini configuration', 'error');
+            this.showNotification('加载 AI 配置失败', 'error');
         }
     }
 
@@ -1064,26 +1064,26 @@ class MainWindowUI {
     async configureGemini() {
         const apiKey = document.getElementById('geminiApiKey').value.trim();
         if (!apiKey) {
-            this.showNotification('Please enter an API key', 'error');
+            this.showNotification('请输入 API Key', 'error');
             return;
         }
         
         try {
             const result = await window.electronAPI.setGeminiApiKey(apiKey);
             if (result.success) {
-                this.showNotification('Gemini API key configured successfully!', 'success');
+                this.showNotification('API Key 配置成功！', 'success');
                 document.querySelector('.fixed').remove();
                 
                 logger.info('Gemini API key configured', { component: 'MainWindowUI' });
             } else {
-                this.showNotification(`Configuration failed: ${result.error}`, 'error');
+                this.showNotification(`配置失败：${result.error}`, 'error');
                 logger.error('Gemini configuration failed', {
                     component: 'MainWindowUI',
                     error: result.error
                 });
             }
         } catch (error) {
-            this.showNotification(`Error: ${error.message}`, 'error');
+            this.showNotification(`出错：${error.message}`, 'error');
             logger.error('Gemini configuration error', {
                 component: 'MainWindowUI',
                 error: error.message
@@ -1095,17 +1095,17 @@ class MainWindowUI {
         try {
             const result = await window.electronAPI.testGeminiConnection();
             if (result.success) {
-                this.showNotification('Gemini connection test successful!', 'success');
+                this.showNotification('AI 连接测试成功！', 'success');
                 logger.info('Gemini connection test successful', { component: 'MainWindowUI' });
             } else {
-                this.showNotification(`Connection test failed: ${result.error}`, 'error');
+                this.showNotification(`连接测试失败：${result.error}`, 'error');
                 logger.error('Gemini connection test failed', {
                     component: 'MainWindowUI',
                     error: result.error
                 });
             }
         } catch (error) {
-            this.showNotification(`Error: ${error.message}`, 'error');
+            this.showNotification(`出错：${error.message}`, 'error');
             logger.error('Gemini connection test error', {
                 component: 'MainWindowUI',
                 error: error.message
@@ -1149,7 +1149,7 @@ class MainWindowUI {
                 component: 'MainWindowUI',
                 error: error.message
             });
-            this.showNotification('Failed to open settings', 'error');
+            this.showNotification('打开设置失败', 'error');
         }
     }
 

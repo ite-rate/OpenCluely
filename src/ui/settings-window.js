@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const whisperResponseTargetSelect = document.getElementById('whisperResponseTarget');
     const whisperSegmentMsInput = document.getElementById('whisperSegmentMs');
     const geminiKeyInput = document.getElementById('geminiKey');
+    const ollamaModelInput = document.getElementById('ollamaModel');
+    const ollamaVisionModelInput = document.getElementById('ollamaVisionModel');
     const windowGapInput = document.getElementById('windowGap');
     const codingLanguageSelect = document.getElementById('codingLanguage');
     const activeSkillSelect = document.getElementById('activeSkill');
@@ -87,7 +89,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (whisperCaptureModeSelect) whisperCaptureModeSelect.value = settings.whisperCaptureMode || 'vad';
         if (whisperResponseTargetSelect) whisperResponseTargetSelect.value = settings.whisperResponseTarget || 'both';
         if (whisperSegmentMsInput) whisperSegmentMsInput.value = settings.whisperSegmentMs || '';
-        if (geminiKeyInput) geminiKeyInput.value = settings.geminiKey || '';
+        if (geminiKeyInput) geminiKeyInput.value = settings.geminiKey || settings.ollamaKey || '';
+        if (ollamaModelInput) ollamaModelInput.value = settings.ollamaModel || '';
+        if (ollamaVisionModelInput) ollamaVisionModelInput.value = settings.ollamaVisionModel || '';
         if (windowGapInput) windowGapInput.value = settings.windowGap || '';
 
         // Set C++ as default if no coding language is specified
@@ -146,7 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (whisperCaptureModeSelect) settings.whisperCaptureMode = whisperCaptureModeSelect.value;
         if (whisperResponseTargetSelect) settings.whisperResponseTarget = whisperResponseTargetSelect.value;
         if (whisperSegmentMsInput) settings.whisperSegmentMs = whisperSegmentMsInput.value;
-        if (geminiKeyInput) settings.geminiKey = geminiKeyInput.value;
+        if (geminiKeyInput) settings.ollamaKey = geminiKeyInput.value;
+        if (ollamaModelInput) settings.ollamaModel = ollamaModelInput.value;
+        if (ollamaVisionModelInput) settings.ollamaVisionModel = ollamaVisionModelInput.value;
         if (windowGapInput) settings.windowGap = windowGapInput.value;
         if (codingLanguageSelect) settings.codingLanguage = codingLanguageSelect.value;
         if (activeSkillSelect) settings.activeSkill = activeSkillSelect.value;
@@ -196,6 +202,8 @@ document.addEventListener('DOMContentLoaded', () => {
         whisperResponseTargetSelect,
         whisperSegmentMsInput,
         geminiKeyInput,
+        ollamaModelInput,
+        ollamaVisionModelInput,
         windowGapInput
     ];
 

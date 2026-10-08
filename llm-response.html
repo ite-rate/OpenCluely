@@ -421,16 +421,16 @@
     <div class="main-container has-header">
         <!-- Draggable Header -->
         <div class="window-header">
-            <div class="window-title">AI Response</div>
+            <div class="window-title">AI 回答</div>
             <div class="window-controls">
-                <button id="close-window-btn" class="window-btn window-btn-close" title="Close">×</button>
+                <button id="close-window-btn" class="window-btn window-btn-close" title="关闭">×</button>
             </div>
         </div>
 
         <!-- Loading State -->
         <div id="loading" class="loading">
             <div class="loading-compact">
-                <span class="text-gray-300 text-sm font-medium mr-2">Analyzing</span>
+                <span class="text-gray-300 text-sm font-medium mr-2">分析中</span>
                 <div class="dots-container">
                     <div class="bouncing-dot"></div>
                     <div class="bouncing-dot"></div>
@@ -842,7 +842,7 @@
             codeContainer.innerHTML = '';
 
             if (codeBlocks.length === 0) {
-                codeContainer.innerHTML = '<div class="no-code">No code examples found</div>';
+                codeContainer.innerHTML = '<div class="no-code">没有找到代码示例</div>';
             } else {
                 codeBlocks.forEach((block, index) => {
                     const codeBlock = document.createElement('div');

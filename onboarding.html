@@ -704,7 +704,7 @@
                 <div class="brand-dot"></div>
                 OpenCluely
             </div>
-            <div class="step-badge" id="stepBadge">Step 1 of 4</div>
+            <div class="step-badge" id="stepBadge">第 1 步 / 共 4 步</div>
         </div>
 
         <!-- ── Stepper ── -->
@@ -722,55 +722,55 @@
             <section class="screen active" data-screen="welcome">
                 <div class="hero">
                     <div class="hero-logo"><i class="fas fa-bolt"></i></div>
-                    <h1>Welcome to OpenCluely</h1>
+                    <h1>欢迎使用 OpenCluely</h1>
                     <p class="tagline">
-                        Your AI-powered interview &amp; problem-solving copilot.
-                        Let's get you set up in about a minute.
+                        你的 AI 面试与解题副驾驶。
+                        大约一分钟就能完成设置。
                     </p>
                     <div class="feature-row">
-                        <div class="feature-pill"><i class="fas fa-keyboard"></i> Live answers</div>
-                        <div class="feature-pill"><i class="fas fa-microphone"></i> Voice input</div>
-                        <div class="feature-pill"><i class="fas fa-shield-halved"></i> Local &amp; private</div>
+                        <div class="feature-pill"><i class="fas fa-keyboard"></i> 实时答题</div>
+                        <div class="feature-pill"><i class="fas fa-microphone"></i> 语音输入</div>
+                        <div class="feature-pill"><i class="fas fa-shield-halved"></i> 本地隐私</div>
                     </div>
                     <button class="btn primary hero-cta" id="heroCtaBtn" type="button">
-                        Get Started <i class="fas fa-arrow-right"></i>
+                        开始使用 <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
             </section>
 
             <!-- SCREEN 2: API Key -->
             <section class="screen" data-screen="apikey">
-                <h1>Connect Google Gemini</h1>
+                <h1>连接 Ollama 云端</h1>
                 <p class="subtitle">
-                    OpenCluely uses Google's Gemini to generate answers. You'll need a free API key.
+                    OpenCluely 通过 Ollama 云端生成回答。需要一个 API Key。
                 </p>
 
                 <div class="field">
-                    <label for="geminiKey">Gemini API Key</label>
+                    <label for="geminiKey">Ollama API Key</label>
                     <div class="input-wrap">
                         <i class="fas fa-key icon"></i>
                         <input
                             type="password"
                             id="geminiKey"
                             class="input"
-                            placeholder="AIza…"
+                            placeholder="输入你的 Ollama API Key"
                             autocomplete="off"
                             spellcheck="false"
                         >
-                        <button class="toggle-vis" id="toggleVis" type="button" title="Show / hide">
+                        <button class="toggle-vis" id="toggleVis" type="button" title="显示 / 隐藏">
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>
                     <div class="hint">
-                        Don't have one? Get a free key at
-                        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
-                            aistudio.google.com/apikey
-                        </a>.
-                        It's stored locally in <code>.env</code> — never sent anywhere except Google.
+                        还没有？在
+                        <a href="https://ollama.com/settings/keys" target="_blank" rel="noreferrer">
+                            ollama.com/settings/keys
+                        </a>
+                        创建。密钥只保存在本地 <code>.env</code> 文件中。
                     </div>
                     <div id="keyStatus" class="status-pill idle" style="display:none;">
                         <i class="fas fa-circle-info"></i>
-                        <span class="text">Enter your key above</span>
+                        <span class="text">请先在上方输入 Key</span>
                     </div>
                 </div>
 
@@ -778,19 +778,18 @@
 
             <!-- SCREEN 3: Speech -->
             <section class="screen" data-screen="speech">
-                <h1>Speech Recognition</h1>
+                <h1>语音识别</h1>
                 <p class="subtitle">
-                    How would you like to capture audio? You can change this later in Settings.
+                    你想如何采集音频？之后可以在设置中修改。
                 </p>
 
                 <div class="choice-list" id="speechChoices">
                     <div class="choice-card" data-value="whisper">
                         <div class="choice-icon"><i class="fas fa-microphone"></i></div>
                         <div class="choice-text">
-                            <div class="choice-title">Local Whisper</div>
+                            <div class="choice-title">本地 Whisper</div>
                             <div class="choice-desc">
-                                Run OpenAI Whisper on your own machine. Free, offline, and private —
-                                no data leaves your computer. Requires Python.
+                                在本机运行 OpenAI Whisper。免费、离线、隐私 —— 数据不出电脑。需要 Python。
                             </div>
                         </div>
                         <div class="choice-radio"></div>
@@ -798,10 +797,9 @@
                     <div class="choice-card" data-value="azure">
                         <div class="choice-icon"><i class="fas fa-cloud"></i></div>
                         <div class="choice-text">
-                            <div class="choice-title">Azure Speech</div>
+                            <div class="choice-title">Azure 语音</div>
                             <div class="choice-desc">
-                                Microsoft Azure cloud STT. Needs an Azure Speech key + region.
-                                High accuracy, requires internet.
+                                微软 Azure 云端语音转文字。需要 Azure 密钥和区域，精度高，需联网。
                             </div>
                         </div>
                         <div class="choice-radio"></div>
@@ -809,9 +807,9 @@
                     <div class="choice-card" data-value="skip">
                         <div class="choice-icon"><i class="fas fa-forward"></i></div>
                         <div class="choice-text">
-                            <div class="choice-title">Skip for now</div>
+                            <div class="choice-title">暂时跳过</div>
                             <div class="choice-desc">
-                                Set this up later in Settings. You can still type messages into the chat window.
+                                稍后在设置中配置。你仍可以在聊天窗口输入文字。
                             </div>
                         </div>
                         <div class="choice-radio"></div>
@@ -821,45 +819,45 @@
                 <!-- Inline Azure key entry (revealed only if Azure selected) -->
                 <div id="azurePanel" style="display:none; margin-top: 14px;">
                     <div class="field">
-                        <label for="azureKey">Azure Speech Key</label>
+                        <label for="azureKey">Azure 语音密钥</label>
                         <div class="input-wrap">
                             <i class="fas fa-key icon"></i>
-                            <input type="password" id="azureKey" class="input" placeholder="Azure key" autocomplete="off">
+                            <input type="password" id="azureKey" class="input" placeholder="Azure 密钥" autocomplete="off">
                         </div>
                     </div>
                     <div class="field">
-                        <label for="azureRegion">Azure Region</label>
+                        <label for="azureRegion">Azure 区域</label>
                         <div class="input-wrap">
                             <i class="fas fa-globe icon"></i>
                             <input type="text" id="azureRegion" class="input" placeholder="eastus" autocomplete="off">
                         </div>
-                        <div class="hint">e.g. <code>eastus</code>, <code>westus2</code>, <code>westeurope</code></div>
+                        <div class="hint">例如 <code>eastus</code>、<code>westus2</code>、<code>westeurope</code></div>
                     </div>
                 </div>
             </section>
 
             <!-- SCREEN 4: Whisper install (only shown when whisper chosen) -->
             <section class="screen" data-screen="whisper">
-                <h1>Local Whisper Setup</h1>
+                <h1>本地 Whisper 安装</h1>
                 <p class="subtitle" id="whisperSubtitle">
-                    Detecting your Whisper installation…
+                    正在检测你的 Whisper 安装…
                 </p>
 
                 <div class="detect-row" id="detectRow">
                     <div>
-                        <div style="font-size:11px; color: var(--text-faint); margin-bottom:2px;">Detected command</div>
-                        <code id="detectCmd">scanning…</code>
+                        <div style="font-size:11px; color: var(--text-faint); margin-bottom:2px;">检测到的命令</div>
+                        <code id="detectCmd">扫描中…</code>
                     </div>
                     <div id="detectStatus" class="status-pill idle">
                         <i class="fas fa-circle-notch fa-spin"></i>
-                        <span class="text">Probing</span>
+                        <span class="text">探测中</span>
                     </div>
                 </div>
 
                 <div class="install-card" id="installCard">
                     <div class="install-title">
                         <i class="fas fa-circle-info"></i>
-                        <span id="installCardTitle">What we'll do</span>
+                        <span id="installCardTitle">将要执行的操作</span>
                     </div>
                     <ul class="install-list" id="installList"></ul>
                 </div>
@@ -869,23 +867,23 @@
 
             <!-- SCREEN 5: Whisper Model Download -->
             <section class="screen" data-screen="model-download">
-                <h1>Whisper Model Download</h1>
+                <h1>Whisper 模型下载</h1>
                 <p class="subtitle" id="modelDownloadSubtitle">
-                    The Whisper transcription model needs to be downloaded before first use.
+                    首次使用前需要下载 Whisper 转写模型。
                 </p>
 
                 <div class="install-card" id="modelDownloadCard">
                     <div class="install-title">
                         <i class="fas fa-circle-info"></i>
-                        <span id="modelDownloadTitle">Choose when to download the model</span>
+                        <span id="modelDownloadTitle">选择何时下载模型</span>
                     </div>
                     <div class="choice-list" id="modelDownloadChoices">
                         <div class="choice-card" data-value="now">
                             <div class="choice-icon"><i class="fas fa-download"></i></div>
                             <div class="choice-text">
-                                <div class="choice-title">Download Now</div>
+                                <div class="choice-title">立即下载</div>
                                 <div class="choice-desc">
-                                    Download the <code>turbo</code> model (~150 MB) now so it's ready when you need it. Recommended.
+                                    现在下载 <code>turbo</code> 模型（约 150 MB），用时即开即得。推荐。
                                 </div>
                             </div>
                             <div class="choice-radio"></div>
@@ -893,9 +891,9 @@
                         <div class="choice-card" data-value="later">
                             <div class="choice-icon"><i class="fas fa-clock"></i></div>
                             <div class="choice-text">
-                                <div class="choice-title">Download on First Use</div>
+                                <div class="choice-title">首次使用时下载</div>
                                 <div class="choice-desc">
-                                    Download the model automatically when you first use voice input. First transcription will take longer.
+                                    首次使用语音输入时自动下载模型。第一次转写会慢一些。
                                 </div>
                             </div>
                             <div class="choice-radio"></div>
@@ -910,9 +908,9 @@
             <section class="screen" data-screen="finish">
                 <div class="finish-card">
                     <div class="check"><i class="fas fa-check"></i></div>
-                    <h1>You're all set!</h1>
+                    <h1>一切就绪！</h1>
                     <p class="subtitle" style="margin-bottom: 18px;">
-                        Here's what we configured. You can change any of this later in Settings.
+                        以上是本次的配置。之后随时可以在设置中修改。
                     </p>
 
                     <div class="summary-list" id="summaryList">
@@ -921,17 +919,16 @@
 
                     <div class="star-card">
                         <div class="star-icon"><i class="fas fa-star"></i></div>
-                        <h3>Enjoying OpenCluely?</h3>
+                        <h3>觉得 OpenCluely 好用？</h3>
                         <p>
-                            If this saved you time in an interview or a coding session,
-                            a quick ⭐ on GitHub helps others find it.
+                            如果它在面试或编程中帮到了你，欢迎去 GitHub 点个 ⭐，让更多人发现它。
                         </p>
                         <div class="actions">
                             <button class="btn primary" id="starBtn" type="button">
-                                <i class="fab fa-github"></i> Star on GitHub
+                                <i class="fab fa-github"></i> 去 GitHub 点星
                             </button>
                             <button class="btn ghost" id="skipStarBtn" type="button">
-                                Maybe later
+                                以后再说
                             </button>
                         </div>
                     </div>
@@ -942,14 +939,14 @@
         <!-- ── Navigation ── -->
         <div class="nav">
             <button class="btn ghost" id="backBtn" type="button" style="visibility:hidden;">
-                <i class="fas fa-arrow-left"></i> Back
+                <i class="fas fa-arrow-left"></i> 上一步
             </button>
             <div class="nav-right">
                 <button class="btn ghost" id="skipBtn" type="button" style="display:none;">
-                    Skip
+                    跳过
                 </button>
                 <button class="btn primary" id="nextBtn" type="button">
-                    Get started <i class="fas fa-arrow-right"></i>
+                    开始使用 <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
         </div>

@@ -68,7 +68,7 @@
   function refreshStepper() {
     const total = totalSteps();
     const current = state.step + 1;
-    stepBadge.textContent = `Step ${current} of ${total}`;
+    stepBadge.textContent = `第 ${current} 步 / 共 ${total} 步`;
     stepperDots.forEach((dot, i) => {
       dot.classList.remove('active', 'done');
       if (i < state.step) dot.classList.add('done');
@@ -94,10 +94,10 @@
       nextBtn.classList.add('primary');
     }
     // The primary action label changes by step
-    if (name === 'welcome') nextBtn.innerHTML = 'Get started <i class="fas fa-arrow-right"></i>';
-    else if (name === 'finish') nextBtn.innerHTML = 'Finish <i class="fas fa-check"></i>';
-    else if (name === 'whisper') nextBtn.innerHTML = 'Continue <i class="fas fa-arrow-right"></i>';
-    else nextBtn.innerHTML = 'Continue <i class="fas fa-arrow-right"></i>';
+    if (name === 'welcome') nextBtn.innerHTML = '开始使用 <i class="fas fa-arrow-right"></i>';
+    else if (name === 'finish') nextBtn.innerHTML = '完成 <i class="fas fa-check"></i>';
+    else if (name === 'whisper') nextBtn.innerHTML = '继续 <i class="fas fa-arrow-right"></i>';
+    else nextBtn.innerHTML = '继续 <i class="fas fa-arrow-right"></i>';
   }
 
   function navigate(direction) {
@@ -183,7 +183,7 @@
     } else if (keyStatus.classList.contains('success')) {
       // Keep success state — they had a valid key, may be editing
     } else {
-      setKeyStatus('idle', 'Key entered');
+      setKeyStatus('idle', '已输入 Key');
     }
   });
 
@@ -237,32 +237,32 @@
   }
 
   async function runWhisperDetect() {
-    detectCmd.textContent = 'scanning…';
-    setDetectStatus('testing', 'Probing');
+    detectCmd.textContent = '扫描中…';
+    setDetectStatus('testing', '探测中');
     try {
       const r = await window.electronAPI.detectWhisper();
       if (r.found) {
         state.whisperDetected = true;
         state.whisperCmd = r.command;
         detectCmd.textContent = r.command;
-        setDetectStatus('success', `Found v${r.version || '?'}`);
-        appendLog(`✓ Detected Whisper CLI: ${r.command}`);
+        setDetectStatus('success', `已找到 v${r.version || '?'}`);
+        appendLog(`✓ 检测到 Whisper CLI：${r.command}`);
       } else {
-        detectCmd.textContent = 'not found';
-        setDetectStatus('error', 'Not installed');
-        appendLog('✗ No Whisper CLI detected on PATH or in known venvs');
+        detectCmd.textContent = '未找到';
+        setDetectStatus('error', '未安装');
+        appendLog('✗ 在 PATH 和已知 venv 中均未检测到 Whisper CLI');
       }
     } catch (e) {
-      setDetectStatus('error', 'Probe failed');
-      appendLog(`! Detection error: ${e.message || e}`);
+      setDetectStatus('error', '探测失败');
+      appendLog(`! 检测出错：${e.message || e}`);
     }
   }
 
   async function runWhisperInstall() {
     const btn = document.getElementById('installWhisperBtn');
     installLog.textContent = '';
-    setDetectStatus('testing', 'Installing');
-    appendLog('Starting install…');
+    setDetectStatus('testing', '安装中');
+    appendLog('开始安装…');
 
     // Lock the button while installing so the user can't double-click
     // and spawn parallel installs. Change the label to "Installing…"
@@ -288,17 +288,17 @@
         state.whisperDetected = true;
         state.whisperCmd = r.command;
         detectCmd.textContent = r.command;
-        setDetectStatus('success', 'Installed');
+        setDetectStatus('success', '已安装');
         appendLog(`\n✓ ${r.message}`);
         if (btn) {
           // Keep button disabled — install is done. Show a checkmark
           // so the user sees the final state at a glance.
-          btn.innerHTML = '<i class="fas fa-check-circle"></i> Installed';
+          btn.innerHTML = '<i class="fas fa-check-circle"></i> 已安装';
           btn.classList.remove('primary');
           btn.classList.add('success');
         }
       } else {
-        setDetectStatus('error', 'Install failed');
+        setDetectStatus('error', '安装失败');
         appendLog(`\n✗ ${r.message}`);
         // Restore the button so the user can retry.
         if (btn) {
@@ -411,9 +411,9 @@
   async function startModelDownload() {
     state.modelDownloading = true;
     nextBtn.disabled = true;
-    nextBtn.innerHTML = '<span class="spinner"></span> Downloading…';
+    nextBtn.innerHTML = '<span class="spinner"></span> 下载中…';
 
-    appendModelLog('Starting model download…');
+    appendModelLog('开始下载模型…');
 
     let progressHandler = null;
     if (window.electronAPI && window.electronAPI.onInstallProgress) {
@@ -430,7 +430,7 @@
         nextBtn.disabled = false;
         nextBtn.classList.remove('primary');
         nextBtn.classList.add('success');
-        nextBtn.innerHTML = '<i class="fas fa-check-circle"></i> Continue';
+        nextBtn.innerHTML = '<i class="fas fa-check-circle"></i> 继续';
       } else {
         appendModelLog(`\n✗ Download failed: ${r.message}`);
         // Let user continue anyway; they'll download on first use
@@ -451,31 +451,31 @@
   function populateSummary() {
     const rows = [];
     rows.push({
-      label: '<i class="fas fa-key"></i> Gemini API',
-      value: (state.geminiKey || state.geminiConfigured) ? 'Configured' : 'Missing',
+      label: '<i class="fas fa-key"></i> AI 服务（Ollama 云端）',
+      value: (state.geminiKey || state.geminiConfigured) ? '已配置' : '未配置',
       cls: (state.geminiKey || state.geminiConfigured) ? 'ok' : 'skip',
     });
     if (state.speechProvider === 'whisper') {
       rows.push({
-        label: '<i class="fas fa-microphone"></i> Speech',
-        value: state.whisperDetected ? `Whisper (${state.whisperCmd || 'cli'})` : 'Whisper (not installed)',
+        label: '<i class="fas fa-microphone"></i> 语音识别',
+        value: state.whisperDetected ? `Whisper (${state.whisperCmd || 'cli'})` : 'Whisper（未安装）',
         cls: state.whisperDetected ? 'ok' : 'skip',
       });
     } else if (state.speechProvider === 'azure') {
       rows.push({
-        label: '<i class="fas fa-cloud"></i> Speech',
+        label: '<i class="fas fa-cloud"></i> 语音识别',
         value: 'Azure',
         cls: 'ok',
       });
     } else {
       rows.push({
-        label: '<i class="fas fa-microphone"></i> Speech',
-        value: 'Skipped (configure later)',
+        label: '<i class="fas fa-microphone"></i> 语音识别',
+        value: '已跳过（稍后配置）',
         cls: 'skip',
       });
     }
     rows.push({
-      label: '<i class="fas fa-file-lines"></i> Config saved to',
+      label: '<i class="fas fa-file-lines"></i> 配置已保存到',
       value: '.env',
       cls: 'ok',
     });
@@ -514,7 +514,7 @@
     const name = currentScreenName();
     if (!canAdvance()) {
       // Lightly nudge the user
-      if (name === 'apikey') setKeyStatus('error', 'Enter a Gemini API key');
+      if (name === 'apikey') setKeyStatus('error', '请输入 Ollama API Key');
       return;
     }
 
